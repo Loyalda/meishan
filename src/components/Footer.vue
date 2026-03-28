@@ -84,7 +84,7 @@
                     </div>
                 </section>
 
-                <!-- 东坡故里 + 全局语言切换按钮（核心） -->
+                <!-- 东坡故里 + 全局语言切换按钮 -->
                 <section class="footer-info-section inline-section">
                     <h2 class="section-title">{{ t('hero.title') }}</h2>
                     <p class="footer-info-desc">{{ t('hero.desc') }}</p>
@@ -96,7 +96,6 @@
                         <span>{{ t('navbar.food') }}</span>
                     </div>
 
-                    <!-- 全局语言切换按钮组 -->
                     <div class="lang-switch-group">
                         <span class="lang-tip">{{ t('footer.langTip') }}：</span>
                         <button class="lang-btn" :class="{ active: currentLang === 'zh' }" @click="switchLang('zh')">
@@ -125,10 +124,15 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import axios from 'axios' // 引入axios请求后端
 
-// ========== 全局语言切换核心逻辑 ==========
 const { t, locale } = useI18n()
+
+// 语言持久化
+const savedLang = localStorage.getItem('meishan-lang')
+if (savedLang) {
+    locale.value = savedLang
+}
+
 const currentLang = computed({
     get: () => locale.value,
     set: (val) => { locale.value = val }
@@ -138,16 +142,18 @@ const switchLang = (lang) => {
     localStorage.setItem('meishan-lang', lang)
 }
 
-// ========== 留言功能逻辑 - 数据库版 + 轮播 ==========
+// 留言
 const form = reactive({ nickname: '', content: '' })
 const submitMsg = ref('')
-const messages = ref([]) // 数据库留言列表
+const messages = ref([])
 
-// 轮播分页配置
 const msgCurrentPage = ref(0)
-const msgPageSize = 4 // 一页显示4条
+const msgPageSize = 4
 
-// 提交留言到数据库
+// 云端接口地址
+const API = 'https://lgq-meishanculture.netlify.app/.netlify/functions/api'
+
+// 提交留言到云端
 const submitComment = async () => {
     if (!form.nickname.trim()) {
         submitMsg.value = t('comment.nicknameTip')
@@ -161,40 +167,47 @@ const submitComment = async () => {
     }
 
     try {
-        // 请求后端接口
-        await axios.post('http://localhost:3000/api/visitor-message', {
-            nickname: form.nickname.trim(),
-            content: form.content.trim()
+        await fetch(API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                table: 'visitor_messages',
+                data: {
+                    nickname: form.nickname.trim(),
+                    content: form.content.trim()
+                }
+            })
         })
+
         submitMsg.value = t('comment.successTip')
         form.nickname = ''
         form.content = ''
-        fetchMessages() // 提交后刷新留言列表
+        fetchMessages()
     } catch (err) {
-        submitMsg.value = '提交失败，请重试'
+        submitMsg.value = '提交失败'
         console.error(err)
     }
     setTimeout(() => submitMsg.value = '', 3000)
 }
 
-// 获取数据库留言
+// 从云端获取留言
 const fetchMessages = async () => {
     try {
-        const res = await axios.get('http://localhost:3000/api/visitor-messages')
-        messages.value = res.data.data
+        const res = await fetch(API)
+        const data = await res.json()
+        messages.value = data.meishan_food.visitor_messages || []
     } catch (err) {
+        messages.value = []
         console.error('获取留言失败', err)
     }
 }
 
-// 轮播计算属性
 const msgTotalPages = computed(() => Math.ceil(messages.value.length / msgPageSize))
 const currentMessages = computed(() => {
     const start = msgCurrentPage.value * msgPageSize
     return messages.value.slice(start, start + msgPageSize)
 })
 
-// 上一页/下一页
 const prevMsgPage = () => {
     if (msgCurrentPage.value > 0) msgCurrentPage.value--
 }
@@ -202,19 +215,17 @@ const nextMsgPage = () => {
     if (msgCurrentPage.value < msgTotalPages.value - 1) msgCurrentPage.value++
 }
 
-// 时间格式化
 const formatDate = (time) => {
     if (!time) return ''
     const d = new Date(time)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// 页面加载时获取留言
 onMounted(() => {
     fetchMessages()
 })
 
-// ========== 攻略下载逻辑 ==========
+// 攻略下载
 const downloadGuide = (key) => {
     const fileMap = {
         'guide.item1': '/guides/meishan-culture-guide.pdf',
@@ -229,7 +240,6 @@ const downloadGuide = (key) => {
 </script>
 
 <style scoped>
-/* 全局样式重置 */
 .footer-wrapper {
     background: #f8f5f0;
     color: #4a4a4a;
@@ -242,7 +252,6 @@ const downloadGuide = (key) => {
     padding: 0 20px;
 }
 
-/* 留言板块样式 */
 .comment-section {
     padding: 60px 0 40px;
     border-bottom: 1px solid #e0d8c8;
@@ -312,13 +321,11 @@ const downloadGuide = (key) => {
     margin: 0;
 }
 
-/* 留言墙轮播样式 */
 .wall-section {
     padding: 50px 0;
     border-bottom: 1px solid #e0d8c8;
 }
 
-/* 轮播核心布局 */
 .carousel-container {
     display: flex;
     align-items: center;
@@ -405,7 +412,6 @@ const downloadGuide = (key) => {
     margin: 0;
 }
 
-/* 轮播圆点 */
 .carousel-dots {
     display: flex;
     justify-content: center;
@@ -425,7 +431,6 @@ const downloadGuide = (key) => {
     background: #d4b886;
 }
 
-/* 三个板块核心样式（紧凑版） */
 .three-section-row {
     padding: 40px 0;
     border-bottom: 1px solid #e0d8c8;
@@ -445,7 +450,6 @@ const downloadGuide = (key) => {
     flex-direction: column;
 }
 
-/* 攻略板块样式 */
 .guide-desc {
     text-align: center;
     color: #8a7a67;
@@ -499,7 +503,6 @@ const downloadGuide = (key) => {
     color: #fff;
 }
 
-/* 联系板块样式 */
 .contact-grid {
     display: flex;
     flex-direction: column;
@@ -524,7 +527,6 @@ const downloadGuide = (key) => {
     color: #8a7a67;
 }
 
-/* 页脚信息 + 语言切换样式（核心） */
 .footer-info-section {
     text-align: center;
     flex: 1;
@@ -546,7 +548,6 @@ const downloadGuide = (key) => {
     color: #666;
 }
 
-/* 语言切换按钮组样式（重点） */
 .lang-switch-group {
     display: flex;
     align-items: center;
@@ -572,7 +573,6 @@ const downloadGuide = (key) => {
     transition: all 0.2s;
 }
 
-/* 激活态样式（当前选中的语言） */
 .lang-btn.active {
     background: #d4b886;
     border-color: #d4b886;
@@ -584,7 +584,6 @@ const downloadGuide = (key) => {
     color: #d4b886;
 }
 
-/* 版权信息样式 */
 .copyright-footer {
     padding: 15px 0;
     text-align: center;
@@ -596,7 +595,6 @@ const downloadGuide = (key) => {
     margin: 0;
 }
 
-/* 响应式适配 */
 @media (max-width: 992px) {
     .row-container {
         flex-wrap: wrap;

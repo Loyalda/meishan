@@ -245,9 +245,8 @@
                         <button class="carousel-btn prev" @click="prevPage" :disabled="currentPage === 0">‹</button>
                         <div class="carousel-images">
                             <div v-for="img in currentImages" :key="img.id" class="checkin-item">
-                                <img :src="`http://localhost:3000${img.image_url}`" :alt="img.shop_name"
-                                    class="wall-img" loading="lazy"
-                                    @click="openImagePopup(`http://localhost:3000${img.image_url}`, img.shop_name)">
+                                <img :src="img.image_url" :alt="img.shop_name" class="wall-img" loading="lazy"
+                                    @click="openImagePopup(img.image_url, img.shop_name)">
                                 <p class="checkin-desc">{{ img.shop_name }}</p>
                             </div>
                         </div>
@@ -330,15 +329,19 @@ let allShopMarkers = [];
 const shopList = ref([]);
 
 // ==================== 评分趋势图 数据库动态数据 ====================
-const trendData = ref([]);    // 趋势数据
-const trendDates = ref([]);   // 日期标签
+const trendData = ref([]);
+const trendDates = ref([]);
 
-// 获取数据库7天评分趋势
 const fetchTrendData = async () => {
     try {
-        const { data } = await axios.get('http://localhost:3000/api/meishan/trend');
-        trendDates.value = data.data.dates;
-        trendData.value = data.data.trend;
+        trendDates.value = ['第1天', '第2天', '第3天', '第4天', '第5天', '第6天', '第7天'];
+        trendData.value = [
+            { name: '东坡十碗菜', data: [4.2, 4.3, 4.5, 4.6, 4.7, 4.8, 4.8] },
+            { name: '稻花香土菜馆', data: [4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9] },
+            { name: '廖哥泡椒兔', data: [4.5, 4.6, 4.7, 4.8, 4.8, 4.9, 4.9] },
+            { name: '孔氏藤椒鸭', data: [4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7] },
+            { name: '史玉华串串制造厂', data: [4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6] }
+        ];
     } catch (err) {
         console.error('获取趋势数据失败:', err);
     }
@@ -373,50 +376,37 @@ const closeReviewPopup = () => {
     showReviewPopup.value = false;
 };
 
-// 提交评价（同步刷新评分 + 趋势图）
+// 提交评价
 const submitReview = async () => {
     if (!reviewScore.value) {
         alert('请选择评分！');
         return;
     }
-
-    try {
-        await axios.post('http://localhost:3000/api/meishan/reviews', {
-            shop_id: currentShop.value.id,
-            score: reviewScore.value,
-            content: reviewContent.value
-        });
-
-        alert('✅ 评价提交成功！评分+趋势已实时更新');
-        closeReviewPopup();
-        showShopPopup.value = false;
-
-        // 同步刷新数据
-        await fetchShopScores();
-        await fetchTrendData();
-        initCharts();
-    } catch (err) {
-        console.error('提交失败：', err);
-        alert('❌ 提交失败，请检查后端是否启动');
-    }
+    alert("✅ 评价提交成功！演示模式，数据仅本地生效");
+    closeReviewPopup();
+    showShopPopup.value = false;
 };
 
-// 从数据库获取店铺数据 + 排序
+// 从云端接口获取店铺数据
 const fetchShopScores = async () => {
     try {
-        const { data } = await axios.get('http://localhost:3000/api/meishan/shops');
-        let fullShopList = data.data.map(shop => {
-            const original = [
-                { id: 1, name: '东坡十碗菜', lng: 103.841255, lat: 30.043182, price: 46, address: '眉山市东坡区大东街108号', dishImg: '/shiwancai.jpg', type: 'dongpo' },
-                { id: 2, name: '稻花香土菜馆', lng: 103.233329, lat: 29.713058, price: 46, address: '眉山市洪雅县玉屏南街香榭丽酒店王府店旁边', dishImg: '/daohuaxiang.jpg', type: 'oldtown' },
-                { id: 3, name: '廖哥泡椒兔', lng: 103.846116, lat: 30.042743, price: 49, address: '眉山市东坡区文学街89号', dishImg: '/paojiaotu.jpg', type: 'street' },
-                { id: 4, name: '孔氏藤椒鸭', lng: 103.233774, lat: 29.717312, price: 39, address: '眉山市洪雅县柳坝路9号', dishImg: '/tengjiaoya.jpg', type: 'dongpo' },
-                { id: 5, name: '史玉华串串制造厂', lng: 103.84394, lat: 29.82398, price: 40, address: '眉山市青神县外南街108号', dishImg: '/shiyuhua.jpg', type: 'street' },
-            ].find(item => item.id === shop.id);
-            return { ...original, score: shop.score };
-        });
-        fullShopList = fullShopList.sort((a, b) => b.score - a.score);
-        shopList.value = fullShopList;
+        const res = await fetch("https://lgq-meishanculture.netlify.app/.netlify/functions/api");
+        const data = await res.json();
+
+        const apiShops = data.meishan_food.shops;
+        const fixedShops = [
+            { id: 1, name: '东坡十碗菜', lng: 103.841255, lat: 30.043182, price: 46, address: '眉山市东坡区大东街108号', dishImg: '/shiwancai.jpg', type: 'dongpo' },
+            { id: 2, name: '稻花香土菜馆', lng: 103.233329, lat: 29.713058, price: 46, address: '眉山市洪雅县玉屏南街香榭丽酒店王府店旁边', dishImg: '/daohuaxiang.jpg', type: 'oldtown' },
+            { id: 3, name: '廖哥泡椒兔', lng: 103.846116, lat: 30.042743, price: 49, address: '眉山市东坡区文学街89号', dishImg: '/paojiaotu.jpg', type: 'street' },
+            { id: 4, name: '孔氏藤椒鸭', lng: 103.233774, lat: 29.717312, price: 39, address: '眉山市洪雅县柳坝路9号', dishImg: '/tengjiaoya.jpg', type: 'dongpo' },
+            { id: 5, name: '史玉华串串制造厂', lng: 103.84394, lat: 29.82398, price: 40, address: '眉山市青神县外南街108号', dishImg: '/shiyuhua.jpg', type: 'street' },
+        ];
+
+        shopList.value = fixedShops.map(s => {
+            const real = apiShops.find(a => a.id === s.id) || {};
+            return { ...s, score: real.score || 4.5 };
+        }).sort((a, b) => b.score - a.score);
+
     } catch (err) {
         console.error(err);
         alert('获取店铺数据失败');
@@ -425,16 +415,20 @@ const fetchShopScores = async () => {
 // ==============================================================
 
 // 🔥 新增：用户打卡轮播功能
-const checkinImages = ref([]);   // 打卡图片列表
-const currentPage = ref(0);      // 当前页码
-const pageSize = 4;             // 一页4张
-const selectedShopId = ref(null);// 当前选中的打卡店铺ID
+const checkinImages = ref([]);
+const currentPage = ref(0);
+const pageSize = 4;
+const selectedShopId = ref(null);
 
 // 获取打卡图片
 const fetchCheckins = async () => {
     try {
-        const { data } = await axios.get('http://localhost:3000/api/checkins');
-        checkinImages.value = data.data;
+        const res = await fetch("https://lgq-meishanculture.netlify.app/.netlify/functions/api");
+        const data = await res.json();
+        checkinImages.value = data.meishan_food.user_checkins.map(i => ({
+            ...i,
+            shop_name: shopList.value.find(s => s.id === i.shop_id)?.name || '店铺'
+        }));
     } catch (err) {
         console.error('获取打卡数据失败', err);
     }
@@ -448,22 +442,9 @@ const handleUpload = async (event) => {
         alert('请先在地图上选择要打卡的店铺！');
         return;
     }
-
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('shop_id', selectedShopId.value);
-
-    try {
-        await axios.post('http://localhost:3000/api/upload-checkin', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        alert('✅ 打卡成功！');
-        fetchCheckins();
-        event.target.value = '';
-    } catch (err) {
-        console.error('上传失败', err);
-        alert('❌ 上传失败，请重试');
-    }
+    alert("✅ 演示模式：打卡上传成功！");
+    fetchCheckins();
+    event.target.value = '';
 };
 
 // 轮播计算属性
@@ -507,7 +488,6 @@ const createShopMarkers = (shops) => {
                 imageSize: new window.AMap.Size(32, 32)
             })
         });
-        // 🔥 绑定选中店铺ID（打卡用）
         marker.on('click', () => {
             currentShop.value = shop;
             selectedShopId.value = shop.id;
@@ -579,7 +559,7 @@ const switchChartType = () => {
     initCharts();
 };
 
-// 初始化图表（趋势图完全动态渲染）
+// 初始化图表
 const initCharts = () => {
     if (rankChart) rankChart.dispose();
     if (categoryChart) categoryChart.dispose();
@@ -624,7 +604,6 @@ const initCharts = () => {
                 max: 5,
                 axisLabel: { formatter: '{value}分' }
             },
-            // ✅ 动态生成5家店趋势折线，从数据库读取
             series: trendData.value.map(shop => ({
                 name: shop.name,
                 type: 'line',
@@ -706,7 +685,7 @@ onMounted(async () => {
     await nextTick();
     await fetchShopScores();
     await fetchTrendData();
-    await fetchCheckins();  // 加载打卡数据
+    await fetchCheckins();
     initCharts();
     setTimeout(() => {
         initMap();
