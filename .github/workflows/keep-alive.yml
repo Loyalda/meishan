@@ -1,0 +1,14 @@
+name: Keep Netlify & Supabase Alive
+
+on:
+  schedule:
+    - cron: "0 0 */10 * *" # 每 10 天 00:00 UTC 执行
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  ping-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Netlify API to keep service alive
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" "https://lgq-meishanculture.netlify.app/.netlify/functions/api"
