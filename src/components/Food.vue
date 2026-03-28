@@ -245,9 +245,8 @@
                         <button class="carousel-btn prev" @click="prevPage" :disabled="currentPage === 0">‹</button>
                         <div class="carousel-images">
                             <div v-for="img in currentImages" :key="img.id" class="checkin-item">
-                                <img :src="`http://localhost:3000${img.image_url}`" :alt="img.shop_name"
-                                    class="wall-img" loading="lazy"
-                                    @click="openImagePopup(`http://localhost:3000${img.image_url}`, img.shop_name)">
+                                <img :src="`img.image_url`" :alt="img.shop_name" class="wall-img" loading="lazy"
+                                    @click="openImagePopup(`img.image_url`, img.shop_name)">
                                 <p class="checkin-desc">{{ img.shop_name }}</p>
                             </div>
                         </div>
@@ -336,7 +335,7 @@ const trendDates = ref([]);   // 日期标签
 // 获取数据库7天评分趋势
 const fetchTrendData = async () => {
     try {
-        const { data } = await axios.get('http://localhost:3000/api/meishan/trend');
+        const { data } = await axios.get('/api/meishan/trend');
         trendDates.value = data.data.dates;
         trendData.value = data.data.trend;
     } catch (err) {
@@ -381,7 +380,7 @@ const submitReview = async () => {
     }
 
     try {
-        await axios.post('http://localhost:3000/api/meishan/reviews', {
+        await axios.post('/api/meishan/reviews', {
             shop_id: currentShop.value.id,
             score: reviewScore.value,
             content: reviewContent.value
@@ -404,7 +403,7 @@ const submitReview = async () => {
 // 从数据库获取店铺数据 + 排序
 const fetchShopScores = async () => {
     try {
-        const { data } = await axios.get('http://localhost:3000/api/meishan/shops');
+        const { data } = await axios.get('/api/meishan/shops');
         let fullShopList = data.data.map(shop => {
             const original = [
                 { id: 1, name: '东坡十碗菜', lng: 103.841255, lat: 30.043182, price: 46, address: '眉山市东坡区大东街108号', dishImg: '/shiwancai.jpg', type: 'dongpo' },
@@ -433,7 +432,7 @@ const selectedShopId = ref(null);// 当前选中的打卡店铺ID
 // 获取打卡图片
 const fetchCheckins = async () => {
     try {
-        const { data } = await axios.get('http://localhost:3000/api/checkins');
+        const { data } = await axios.get('/api/checkins');
         checkinImages.value = data.data;
     } catch (err) {
         console.error('获取打卡数据失败', err);
@@ -454,7 +453,7 @@ const handleUpload = async (event) => {
     formData.append('shop_id', selectedShopId.value);
 
     try {
-        await axios.post('http://localhost:3000/api/upload-checkin', formData, {
+        await axios.post('/api/upload-checkin', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         alert('✅ 打卡成功！');

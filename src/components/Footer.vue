@@ -162,7 +162,7 @@ const submitComment = async () => {
 
     try {
         // 请求后端接口
-        await axios.post('http://localhost:3000/api/visitor-message', {
+        await axios.post('/api/visitor-message', {
             nickname: form.nickname.trim(),
             content: form.content.trim()
         })
@@ -180,7 +180,7 @@ const submitComment = async () => {
 // 获取数据库留言
 const fetchMessages = async () => {
     try {
-        const res = await axios.get('http://localhost:3000/api/visitor-messages')
+        const res = await axios.get('/api/visitor-messages')
         messages.value = res.data.data
     } catch (err) {
         console.error('获取留言失败', err)

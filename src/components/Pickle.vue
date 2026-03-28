@@ -171,7 +171,7 @@ export default {
     // 保存数据到数据库
     const savePickleToDB = async (pickle) => {
       try {
-        await axios.post('http://localhost:3000/api/save-pickle', {
+        await axios.post('/api/save-pickle', {
           name: pickle.name,
           salt_ratio: pickle.salt_ratio,
           ferment_days: pickle.ferment_days
@@ -198,7 +198,7 @@ export default {
     // 从数据库加载图表数据
     const loadChartData = async () => {
       try {
-        const res = await axios.get('http://localhost:3000/api/pickle-stats')
+        const res = await axios.get('/api/pickle-stats')
         const { names, counts } = res.data.data
 
         chartInstance.setOption({
