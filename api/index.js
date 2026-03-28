@@ -1,4 +1,4 @@
-// api/index.js - Vercel 最终终极版（课程作业100%完成）
+// api/index.js - Vercel 最终完整版（修复404+适配所有前端接口）
 const { createClient } = require('@supabase/supabase-js');
 
 // Vercel 服务器接口固定格式
@@ -74,7 +74,55 @@ export default async function handler(req, res) {
   }
 
   // ==============================
-  // 1. 查询店铺表 + 自动生成【云端图片链接】
+  // ✅ 修复404：前端请求 /api/meishan/shops
+  // ==============================
+  if (req.method === 'GET' && req.path === '/api/meishan/shops') {
+    try {
+      const { data: shops, error: errShops } = await supabase
+        .from('shops').select('*');
+      if (errShops) throw errShops;
+
+      const shopsWithCloudImages = shops.map(shop => ({
+        ...shop,
+        image_url: supabase.storage.from('uploads').getPublicUrl(shop.image_url).data.publicUrl
+      }));
+
+      return res.status(200).json(shopsWithCloudImages);
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // ==============================
+  // ✅ 修复404：前端请求 /api/checkins
+  // ==============================
+  if (req.method === 'GET' && req.path === '/api/checkins') {
+    try {
+      const { data: user_checkins, error: errCheckins } = await supabase
+        .from('user_checkins').select('*');
+      if (errCheckins) throw errCheckins;
+      return res.status(200).json(user_checkins);
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // ==============================
+  // ✅ 修复404：前端请求 /api/meishan/trend
+  // ==============================
+  if (req.method === 'GET' && req.path === '/api/meishan/trend') {
+    try {
+      const { data: pickle_records, error: errPickle } = await supabase
+        .from('pickle_records').select('*');
+      if (errPickle) throw errPickle;
+      return res.status(200).json(pickle_records);
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // ==============================
+  // 原有根接口（兼容旧调用）
   // ==============================
   try {
     const { data: shops, error: errShops } = await supabase
@@ -88,7 +136,7 @@ export default async function handler(req, res) {
     }));
 
     // ==============================
-    // 2. 查询其他所有数据表（文字内容：留言、评论等）
+    // 查询其他所有数据表（文字内容：留言、评论等）
     // ==============================
     const { data: user_checkins, error: errCheckins } = await supabase
       .from('user_checkins').select('*');
@@ -107,7 +155,7 @@ export default async function handler(req, res) {
     if (errPickle) throw errPickle;
 
     // ==============================
-    // 3. 返回数据给前端（包含云端图片+所有文字数据）
+    // 返回数据给前端（包含云端图片+所有文字数据）
     // ==============================
     return res.status(200).json({
       message: "✅ 接口部署成功！数据+图片均加载自云端",
