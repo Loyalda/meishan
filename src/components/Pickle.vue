@@ -1,5 +1,6 @@
 <template>
   <section id="pickle" class="pickle">
+
     <!-- ① 泡菜文化引导区（Hero） -->
     <div class="hero-section">
       <div class="hero-content">
@@ -36,14 +37,24 @@
     <div class="process-section">
       <div class="container">
         <h2 class="section-title">东坡泡菜制作工艺</h2>
+
+        <!-- 流程可视化 -->
         <div class="process-steps">
           <div v-for="(step, index) in processSteps" :key="index" class="process-card"
             :class="{ active: activeStep === index }" @click="setActiveStep(index)">
-            <div class="step-index">{{ index + 1 }}</div>
-            <div class="step-name">{{ step.name }}</div>
-            <div class="step-icon">{{ step.emoji }}</div>
+            <div class="step-index">
+              {{ index + 1 }}
+            </div>
+            <div class="step-name">
+              {{ step.name }}
+            </div>
+            <div class="step-icon">
+              {{ step.emoji }}
+            </div>
           </div>
         </div>
+
+        <!-- 步骤详情 -->
         <div class="step-details">
           <div class="step-card" v-if="activeStep !== -1">
             <h3>{{ processSteps[activeStep].name }}</h3>
@@ -78,17 +89,19 @@
       </div>
     </div>
 
-    <!-- ⑥ 泡菜坛互动体验 + 统计图表（云端版） -->
+    <!-- ⑥ 泡菜坛互动体验 + 泡菜互动统计图表（数据库版） -->
     <div class="interactive-section">
       <div class="container">
         <h2 class="section-title">泡菜坛互动体验</h2>
         <p class="interactive-subtitle">点击泡菜坛探索风味</p>
+
         <div class="interactive-wrapper">
           <!-- 左侧：泡菜坛互动 -->
           <div class="interactive-left">
             <div class="interactive-jar" :class="{ 'shaking': isShaking }" @click="generateRandomPickle">
               🏺
             </div>
+
             <div class="generated-pickle" v-if="currentPickle">
               <div class="pickle-card">
                 <div class="pickle-emoji">{{ currentPickle.emoji }}</div>
@@ -101,7 +114,8 @@
               </div>
             </div>
           </div>
-          <!-- 右侧：统计图表 -->
+
+          <!-- 右侧：数据库统计图表 -->
           <div class="interactive-right">
             <div class="chart-card">
               <h3>泡菜互动统计</h3>
@@ -109,21 +123,17 @@
             </div>
           </div>
         </div>
+
       </div>
     </div>
+
   </section>
 </template>
 
 <script>
 import * as echarts from 'echarts'
 import { ref, onMounted, nextTick } from 'vue'
-import axios from 'axios'
-
-// 🔥 核心修改：所有请求指向你的 Netlify 云端接口（本地后端彻底关闭也能用）
-const api = axios.create({
-  baseURL: 'https://lgq-meishanculture.netlify.app/.netlify/functions/api',
-  timeout: 10000
-})
+import axios from 'axios' // 引入axios
 
 export default {
   name: 'PickleModule',
@@ -158,10 +168,10 @@ export default {
       activeStep.value = index
     }
 
-    // 保存数据到云端数据库（和本地接口逻辑完全一致）
+    // 保存数据到数据库
     const savePickleToDB = async (pickle) => {
       try {
-        await api.post('/save-pickle', {
+        await axios.post('http://localhost:3000/api/save-pickle', {
           name: pickle.name,
           salt_ratio: pickle.salt_ratio,
           ferment_days: pickle.ferment_days
@@ -169,38 +179,34 @@ export default {
         // 保存成功后刷新图表
         loadChartData()
       } catch (err) {
-        console.error('保存泡菜数据失败:', err)
+        console.log('保存失败', err)
       }
     }
 
-    // 随机生成泡菜 + 存入数据库
+    // 随机生成泡菜 + 存库
     const generateRandomPickle = () => {
       isShaking.value = true
       setTimeout(() => {
         isShaking.value = false
         const randomIndex = Math.floor(Math.random() * pickleTypes.length)
         currentPickle.value = pickleTypes[randomIndex]
+        // 存入数据库
         savePickleToDB(currentPickle.value)
       }, 500)
     }
 
-    // 从云端加载图表统计数据（格式和本地接口完全一致）
+    // 从数据库加载图表数据
     const loadChartData = async () => {
       try {
-        const res = await api.get('/pickle-stats')
-        const { names, counts } = res.data.data // 保持和本地接口返回格式一致
+        const res = await axios.get('http://localhost:3000/api/pickle-stats')
+        const { names, counts } = res.data.data
 
         chartInstance.setOption({
           xAxis: { data: names },
           series: [{ data: counts }]
         })
       } catch (err) {
-        console.error('加载图表数据失败:', err)
-        // 即使加载失败，图表也不会崩溃，显示空数据
-        chartInstance.setOption({
-          xAxis: { data: [] },
-          series: [{ data: [] }]
-        })
+        console.log('获取图表数据失败')
       }
     }
 
@@ -226,6 +232,7 @@ export default {
         }]
       }
       chartInstance.setOption(option)
+      // 加载数据库数据
       loadChartData()
       window.addEventListener('resize', () => chartInstance.resize())
     }
@@ -251,12 +258,12 @@ export default {
 </script>
 
 <style scoped>
-/* 样式和之前完全一致，没有任何修改 */
 .pickle {
   background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
   min-height: 100vh;
 }
 
+/* Hero Section */
 .hero-section {
   position: relative;
   width: 1200px;
@@ -310,6 +317,7 @@ export default {
   transform: translateY(-50%);
 }
 
+/* Origin Section */
 .origin-section {
   padding: 100px 20px;
   background: white;
@@ -356,6 +364,7 @@ export default {
   color: #555;
 }
 
+/* Process Section */
 .process-section {
   padding: 100px 20px;
   background: #f8f9fa;
@@ -459,6 +468,7 @@ export default {
   font-size: 3rem;
 }
 
+/* Culture Spirit Section */
 .culture-spirit-section {
   padding: 100px 20px;
   background: #f8f9fa;
@@ -504,6 +514,7 @@ export default {
   line-height: 1.6;
 }
 
+/* 交互区域样式 */
 .interactive-section {
   padding: 40px 0;
   width: 1400px;
@@ -611,6 +622,7 @@ export default {
   width: 100%;
 }
 
+/* 动画 */
 @keyframes floatJar {
   0% {
     transform: translateY(0px);
