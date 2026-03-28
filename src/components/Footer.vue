@@ -125,7 +125,8 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import axios from 'axios' // 引入axios请求后端
+// 引入 Supabase 客户端（核心修改）
+import { supabase } from '@/supabase'
 
 // ========== 全局语言切换核心逻辑 ==========
 const { t, locale } = useI18n()
@@ -138,7 +139,7 @@ const switchLang = (lang) => {
     localStorage.setItem('meishan-lang', lang)
 }
 
-// ========== 留言功能逻辑 - 数据库版 + 轮播 ==========
+// ========== 留言功能逻辑 - Supabase 数据库版 + 轮播 ==========
 const form = reactive({ nickname: '', content: '' })
 const submitMsg = ref('')
 const messages = ref([]) // 数据库留言列表
@@ -147,7 +148,7 @@ const messages = ref([]) // 数据库留言列表
 const msgCurrentPage = ref(0)
 const msgPageSize = 4 // 一页显示4条
 
-// 提交留言到数据库
+// 提交留言到 Supabase 数据库（核心修改）
 const submitComment = async () => {
     if (!form.nickname.trim()) {
         submitMsg.value = t('comment.nicknameTip')
@@ -161,11 +162,19 @@ const submitComment = async () => {
     }
 
     try {
-        // 请求后端接口
-        await axios.post('/api/visitor-message', {
-            nickname: form.nickname.trim(),
-            content: form.content.trim()
-        })
+        // 直接插入数据到 Supabase，无后端接口
+        const { error } = await supabase
+            .from('visitor_messages')
+            .insert([
+                {
+                    nickname: form.nickname.trim(),
+                    content: form.content.trim(),
+                    create_time: new Date()
+                }
+            ])
+
+        if (error) throw error
+
         submitMsg.value = t('comment.successTip')
         form.nickname = ''
         form.content = ''
@@ -177,11 +186,17 @@ const submitComment = async () => {
     setTimeout(() => submitMsg.value = '', 3000)
 }
 
-// 获取数据库留言
+// 从 Supabase 获取留言（核心修改）
 const fetchMessages = async () => {
     try {
-        const res = await axios.get('/api/visitor-messages')
-        messages.value = res.data.data
+        // 直接查询 Supabase 数据库，按时间倒序排列
+        const { data, error } = await supabase
+            .from('visitor_messages')
+            .select('*')
+            .order('create_time', { ascending: false })
+
+        if (error) throw error
+        messages.value = data
     } catch (err) {
         console.error('获取留言失败', err)
     }
