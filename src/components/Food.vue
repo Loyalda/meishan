@@ -245,8 +245,9 @@
                         <button class="carousel-btn prev" @click="prevPage" :disabled="currentPage === 0">‹</button>
                         <div class="carousel-images">
                             <div v-for="img in currentImages" :key="img.id" class="checkin-item">
-                                <img :src="`img.image_url`" :alt="img.shop_name" class="wall-img" loading="lazy"
-                                    @click="openImagePopup(`img.image_url`, img.shop_name)">
+                                <!-- 🔥 修复：图片路径语法错误 -->
+                                <img :src="img.image_url" :alt="img.shop_name" class="wall-img" loading="lazy"
+                                    @click="openImagePopup(img.image_url, img.shop_name)">
                                 <p class="checkin-desc">{{ img.shop_name }}</p>
                             </div>
                         </div>
@@ -296,10 +297,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import * as echarts from 'echarts';
-import { useI18n } from 'vue-i18n';
-import axios from 'axios';
-
-const { t } = useI18n();
+// 🔥 替换：移除axios，引入Supabase
+import { supabase } from '@/supabase';
 
 // 地图容器 ref
 const mapContainerRef = ref(null);
@@ -329,15 +328,18 @@ let allShopMarkers = [];
 const shopList = ref([]);
 
 // ==================== 评分趋势图 数据库动态数据 ====================
-const trendData = ref([]);    // 趋势数据
-const trendDates = ref([]);   // 日期标签
+const trendData = ref([]);
+const trendDates = ref([]);
 
-// 获取数据库7天评分趋势
+// 🔥 修复：Supabase获取趋势数据
 const fetchTrendData = async () => {
     try {
-        const { data } = await axios.get('/api/meishan/trend');
-        trendDates.value = data.data.dates;
-        trendData.value = data.data.trend;
+        const { data, error } = await supabase.from('food_score_trend').select('*');
+        if (error) throw error;
+        if (data.length > 0) {
+            trendDates.value = data[0].dates;
+            trendData.value = data[0].trend;
+        }
     } catch (err) {
         console.error('获取趋势数据失败:', err);
     }
@@ -372,7 +374,7 @@ const closeReviewPopup = () => {
     showReviewPopup.value = false;
 };
 
-// 提交评价（同步刷新评分 + 趋势图）
+// 🔥 修复：Supabase提交评价
 const submitReview = async () => {
     if (!reviewScore.value) {
         alert('请选择评分！');
@@ -380,12 +382,14 @@ const submitReview = async () => {
     }
 
     try {
-        await axios.post('/api/meishan/reviews', {
+        const { error } = await supabase.from('food_reviews').insert([{
             shop_id: currentShop.value.id,
             score: reviewScore.value,
-            content: reviewContent.value
-        });
+            content: reviewContent.value,
+            created_at: new Date()
+        }]);
 
+        if (error) throw error;
         alert('✅ 评价提交成功！评分+趋势已实时更新');
         closeReviewPopup();
         showShopPopup.value = false;
@@ -396,26 +400,29 @@ const submitReview = async () => {
         initCharts();
     } catch (err) {
         console.error('提交失败：', err);
-        alert('❌ 提交失败，请检查后端是否启动');
+        alert('❌ 提交失败，请检查Supabase配置');
     }
 };
 
-// 从数据库获取店铺数据 + 排序
+// 🔥 修复：Supabase获取店铺数据
 const fetchShopScores = async () => {
     try {
-        const { data } = await axios.get('/api/meishan/shops');
-        let fullShopList = data.data.map(shop => {
-            const original = [
-                { id: 1, name: '东坡十碗菜', lng: 103.841255, lat: 30.043182, price: 46, address: '眉山市东坡区大东街108号', dishImg: '/shiwancai.jpg', type: 'dongpo' },
-                { id: 2, name: '稻花香土菜馆', lng: 103.233329, lat: 29.713058, price: 46, address: '眉山市洪雅县玉屏南街香榭丽酒店王府店旁边', dishImg: '/daohuaxiang.jpg', type: 'oldtown' },
-                { id: 3, name: '廖哥泡椒兔', lng: 103.846116, lat: 30.042743, price: 49, address: '眉山市东坡区文学街89号', dishImg: '/paojiaotu.jpg', type: 'street' },
-                { id: 4, name: '孔氏藤椒鸭', lng: 103.233774, lat: 29.717312, price: 39, address: '眉山市洪雅县柳坝路9号', dishImg: '/tengjiaoya.jpg', type: 'dongpo' },
-                { id: 5, name: '史玉华串串制造厂', lng: 103.84394, lat: 29.82398, price: 40, address: '眉山市青神县外南街108号', dishImg: '/shiyuhua.jpg', type: 'street' },
-            ].find(item => item.id === shop.id);
-            return { ...original, score: shop.score };
-        });
-        fullShopList = fullShopList.sort((a, b) => b.score - a.score);
-        shopList.value = fullShopList;
+        const { data, error } = await supabase.from('food_shops').select('*');
+        if (error) throw error;
+
+        const baseShops = [
+            { id: 1, name: '东坡十碗菜', lng: 103.841255, lat: 30.043182, price: 46, address: '眉山市东坡区大东街108号', dishImg: '/shiwancai.jpg', type: 'dongpo' },
+            { id: 2, name: '稻花香土菜馆', lng: 103.233329, lat: 29.713058, price: 46, address: '眉山市洪雅县玉屏南街香榭丽酒店王府店旁边', dishImg: '/daohuaxiang.jpg', type: 'oldtown' },
+            { id: 3, name: '廖哥泡椒兔', lng: 103.846116, lat: 30.042743, price: 49, address: '眉山市东坡区文学街89号', dishImg: '/paojiaotu.jpg', type: 'street' },
+            { id: 4, name: '孔氏藤椒鸭', lng: 103.233774, lat: 29.717312, price: 39, address: '眉山市洪雅县柳坝路9号', dishImg: '/tengjiaoya.jpg', type: 'dongpo' },
+            { id: 5, name: '史玉华串串制造厂', lng: 103.84394, lat: 29.82398, price: 40, address: '眉山市青神县外南街108号', dishImg: '/shiyuhua.jpg', type: 'street' },
+        ];
+
+        shopList.value = baseShops.map(shop => {
+            const dbData = data.find(item => item.id === shop.id) || { score: 4.5 };
+            return { ...shop, score: dbData.score };
+        }).sort((a, b) => b.score - a.score);
+
     } catch (err) {
         console.error(err);
         alert('获取店铺数据失败');
@@ -423,23 +430,24 @@ const fetchShopScores = async () => {
 };
 // ==============================================================
 
-// 🔥 新增：用户打卡轮播功能
-const checkinImages = ref([]);   // 打卡图片列表
-const currentPage = ref(0);      // 当前页码
-const pageSize = 4;             // 一页4张
-const selectedShopId = ref(null);// 当前选中的打卡店铺ID
+// 🔥 用户打卡轮播功能
+const checkinImages = ref([]);
+const currentPage = ref(0);
+const pageSize = 4;
+const selectedShopId = ref(null);
 
-// 获取打卡图片
+// 🔥 修复：Supabase获取打卡图片
 const fetchCheckins = async () => {
     try {
-        const { data } = await axios.get('/api/checkins');
-        checkinImages.value = data.data;
+        const { data, error } = await supabase.from('food_checkins').select('*');
+        if (error) throw error;
+        checkinImages.value = data;
     } catch (err) {
         console.error('获取打卡数据失败', err);
     }
 };
 
-// 上传打卡图片
+// 🔥 修复：Supabase上传打卡图片
 const handleUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -448,14 +456,29 @@ const handleUpload = async (event) => {
         return;
     }
 
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('shop_id', selectedShopId.value);
-
     try {
-        await axios.post('/api/upload-checkin', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        // 上传图片到Supabase存储
+        const fileName = `${Date.now()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+            .from('food-checkins')
+            .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        // 获取公开URL
+        const { data: urlData } = supabase.storage
+            .from('food-checkins')
+            .getPublicUrl(fileName);
+
+        // 保存打卡记录
+        const { error } = await supabase.from('food_checkins').insert([{
+            shop_id: selectedShopId.value,
+            shop_name: currentShop.value.name,
+            image_url: urlData.publicUrl,
+            created_at: new Date()
+        }]);
+
+        if (error) throw error;
         alert('✅ 打卡成功！');
         fetchCheckins();
         event.target.value = '';
@@ -506,7 +529,6 @@ const createShopMarkers = (shops) => {
                 imageSize: new window.AMap.Size(32, 32)
             })
         });
-        // 🔥 绑定选中店铺ID（打卡用）
         marker.on('click', () => {
             currentShop.value = shop;
             selectedShopId.value = shop.id;
@@ -578,7 +600,7 @@ const switchChartType = () => {
     initCharts();
 };
 
-// 初始化图表（趋势图完全动态渲染）
+// 初始化图表
 const initCharts = () => {
     if (rankChart) rankChart.dispose();
     if (categoryChart) categoryChart.dispose();
@@ -623,7 +645,6 @@ const initCharts = () => {
                 max: 5,
                 axisLabel: { formatter: '{value}分' }
             },
-            // ✅ 动态生成5家店趋势折线，从数据库读取
             series: trendData.value.map(shop => ({
                 name: shop.name,
                 type: 'line',
@@ -705,7 +726,7 @@ onMounted(async () => {
     await nextTick();
     await fetchShopScores();
     await fetchTrendData();
-    await fetchCheckins();  // 加载打卡数据
+    await fetchCheckins();
     initCharts();
     setTimeout(() => {
         initMap();

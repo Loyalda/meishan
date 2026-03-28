@@ -133,7 +133,8 @@
 <script>
 import * as echarts from 'echarts'
 import { ref, onMounted, nextTick } from 'vue'
-import axios from 'axios' // 引入axios
+// 引入 Supabase 客户端
+import { supabase } from '@/supabase'
 
 export default {
   name: 'PickleModule',
@@ -168,16 +169,20 @@ export default {
       activeStep.value = index
     }
 
-    // 保存数据到数据库
+    // 保存数据到 Supabase（适配你的表结构）
     const savePickleToDB = async (pickle) => {
       try {
-        await axios.post('/api/save-pickle', {
-          name: pickle.name,
-          salt_ratio: pickle.salt_ratio,
-          ferment_days: pickle.ferment_days
-        })
-        // 保存成功后刷新图表
-        loadChartData()
+        const { error } = await supabase
+          .from('pickle_records') // 你的表名
+          .insert([{
+            姓名: pickle.name,        // 对应表中「姓名」字段
+            盐比例: pickle.salt_ratio, // 对应表中「盐比例」字段
+            发酵天数: pickle.ferment_days, // 对应表中「发酵天数」字段
+            创建时间: new Date()       // 对应表中「创建时间」字段
+          }])
+
+        if (error) throw error
+        loadChartData() // 刷新图表
       } catch (err) {
         console.log('保存失败', err)
       }
@@ -190,23 +195,34 @@ export default {
         isShaking.value = false
         const randomIndex = Math.floor(Math.random() * pickleTypes.length)
         currentPickle.value = pickleTypes[randomIndex]
-        // 存入数据库
         savePickleToDB(currentPickle.value)
       }, 500)
     }
 
-    // 从数据库加载图表数据
+    // 从 Supabase 加载图表数据（适配你的表结构）
     const loadChartData = async () => {
       try {
-        const res = await axios.get('/api/pickle-stats')
-        const { names, counts } = res.data.data
+        const { data, error } = await supabase
+          .from('pickle_records') // 你的表名
+          .select('姓名') // 查询「姓名」字段用于统计
+
+        if (error) throw error
+
+        // 统计每种泡菜的点击次数
+        const countMap = {}
+        data.forEach(item => {
+          countMap[item.姓名] = (countMap[item.姓名] || 0) + 1
+        })
+
+        const names = Object.keys(countMap)
+        const counts = Object.values(countMap)
 
         chartInstance.setOption({
           xAxis: { data: names },
           series: [{ data: counts }]
         })
       } catch (err) {
-        console.log('获取图表数据失败')
+        console.log('获取图表数据失败', err)
       }
     }
 
@@ -232,7 +248,6 @@ export default {
         }]
       }
       chartInstance.setOption(option)
-      // 加载数据库数据
       loadChartData()
       window.addEventListener('resize', () => chartInstance.resize())
     }
