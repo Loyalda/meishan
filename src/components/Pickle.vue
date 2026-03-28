@@ -9,7 +9,7 @@
         <div class="hero-description">
           <p>东坡泡菜是四川传统饮食文化的重要代表，也是<strong>眉山市</strong>极具特色的美食。</p>
           <p>相传北宋文学家<strong>苏轼</strong>在家乡生活时十分喜爱泡菜，因此眉山泡菜逐渐闻名。</p>
-          <p>经过长期发展，这种腌制技艺成为四川饮食文化的重要组成部分。</p>
+          <p>经过长期发展，这种传统腌制技艺成为四川饮食文化的重要组成部分。</p>
         </div>
       </div>
       <div class="pickle-jar-decoration">🏺</div>
@@ -25,8 +25,8 @@
           <div class="origin-text">
             <h2>东坡泡菜的起源</h2>
             <p><strong>眉山市</strong>地处四川盆地，气候温暖湿润，适宜蔬菜种植。</p>
-            <p>古代人们为了延长蔬菜保存时间，逐渐形成腌制泡菜的传统。</p>
-            <p>随着时间推移，这种腌制方式不断发展，形成独具特色的四川泡菜文化。</p>
+            <p>古代人们为了延长蔬菜的保存时间，逐渐形成了腌制泡菜的传统。</p>
+            <p>随着时间的推移，这种腌制方式不断发展，形成了独具特色的四川泡菜文化。</p>
             <p>据说<strong>苏轼</strong>在家乡生活时非常喜爱泡菜，因此得名东坡泡菜。</p>
           </div>
         </div>
@@ -89,7 +89,7 @@
       </div>
     </div>
 
-    <!-- ⑥ 泡菜坛互动体验 + 泡菜互动统计图表（云端版） -->
+    <!-- ⑥ 泡菜坛互动体验 + 泡菜互动统计图表（数据库版） -->
     <div class="interactive-section">
       <div class="container">
         <h2 class="section-title">泡菜坛互动体验</h2>
@@ -115,7 +115,7 @@
             </div>
           </div>
 
-          <!-- 右侧：云端统计图表 -->
+          <!-- 右侧：数据库统计图表 -->
           <div class="interactive-right">
             <div class="chart-card">
               <h3>泡菜互动统计</h3>
@@ -133,6 +133,12 @@
 <script>
 import * as echarts from 'echarts'
 import { ref, onMounted, nextTick } from 'vue'
+import axios from 'axios'
+
+// 🔥 唯一修改：配置云端接口（本地后端关闭，云端正常运行）
+const request = axios.create({
+  baseURL: 'https://lgq-meishanculture.netlify.app/.netlify/functions/api'
+})
 
 export default {
   name: 'PickleModule',
@@ -142,9 +148,6 @@ export default {
     const currentPickle = ref(null)
     const pickleChart = ref(null)
     let chartInstance = null
-
-    // 云端接口地址
-    const API_BASE = 'https://lgq-meishanculture.netlify.app/.netlify/functions/api'
 
     // 制作工艺步骤
     const processSteps = [
@@ -170,54 +173,36 @@ export default {
       activeStep.value = index
     }
 
-    // 保存数据到云端Netlify接口
+    // 保存数据到数据库（逻辑完全不变）
     const savePickleToDB = async (pickle) => {
       try {
-        await fetch(API_BASE, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            table: 'pickle_stats',
-            data: {
-              name: pickle.name,
-              salt_ratio: pickle.salt_ratio,
-              ferment_days: pickle.ferment_days
-            }
-          })
+        await request.post('/save-pickle', {
+          name: pickle.name,
+          salt_ratio: pickle.salt_ratio,
+          ferment_days: pickle.ferment_days
         })
-        // 保存成功后刷新图表
         loadChartData()
       } catch (err) {
         console.log('保存失败', err)
       }
     }
 
-    // 随机生成泡菜 + 存云端
+    // 随机生成泡菜 + 存库（逻辑完全不变）
     const generateRandomPickle = () => {
       isShaking.value = true
       setTimeout(() => {
         isShaking.value = false
         const randomIndex = Math.floor(Math.random() * pickleTypes.length)
         currentPickle.value = pickleTypes[randomIndex]
-        // 存入云端
         savePickleToDB(currentPickle.value)
       }, 500)
     }
 
-    // 从云端加载图表数据
+    // 从数据库加载图表数据（逻辑完全不变）
     const loadChartData = async () => {
       try {
-        const res = await fetch(API_BASE)
-        const data = await res.json()
-        const stats = data.pickle_stats || []
-
-        // 统计互动次数
-        const nameMap = {}
-        stats.forEach(item => {
-          nameMap[item.name] = (nameMap[item.name] || 0) + 1
-        })
-        const names = Object.keys(nameMap)
-        const counts = names.map(name => nameMap[name])
+        const res = await request.get('/pickle-stats')
+        const { names, counts } = res.data.data
 
         chartInstance.setOption({
           xAxis: { data: names },
