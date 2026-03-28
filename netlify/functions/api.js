@@ -1,70 +1,67 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
+  // 从 Netlify 环境变量读取 Supabase 连接信息
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_ANON_KEY
   );
 
   try {
-    // ==============================================
-    // 库 1：meishan_food → 查询所有表
-    // ==============================================
-    const { data: shops, error: err1 } = await supabase
+    // ==============================
+    // 1. 查询 meishan_food 库的 4 张表
+    // ==============================
+    const { data: shops, error: errShops } = await supabase
       .from('shops').select('*');
-    
-    const { data: foods, error: err2 } = await supabase
-      .from('foods').select('*');
+    if (errShops) throw errShops;
 
-    const { data: categories, error: err3 } = await supabase
-      .from('categories').select('*');
+    const { data: user_checkins, error: errCheckins } = await supabase
+      .from('user_checkins').select('*');
+    if (errCheckins) throw errCheckins;
 
-    // ==============================================
-    // 库 2：pickle_db → 查询所有表
-    // ==============================================
-    const { data: pickle_records, error: err4 } = await supabase
+    const { data: user_reviews, error: errReviews } = await supabase
+      .from('user_reviews').select('*');
+    if (errReviews) throw errReviews;
+
+    const { data: visitor_messages, error: errMessages } = await supabase
+      .from('visitor_messages').select('*');
+    if (errMessages) throw errMessages;
+
+    // ==============================
+    // 2. 查询 pickle_db 库的 1 张表
+    // ==============================
+    const { data: pickle_records, error: errPickle } = await supabase
       .from('pickle_records').select('*');
-    
-    const { data: materials, error: err5 } = await supabase
-      .from('materials').select('*');
+    if (errPickle) throw errPickle;
 
-    const { data: users, error: err6 } = await supabase
-      .from('users').select('*');
-
-    // 统一错误捕获
-    if (err1 || err2 || err3 || err4 || err5 || err6) {
-      throw new Error("部分表查询失败，但连接正常");
-    }
-
-    // ==============================================
-    // 返回：两个库 + 里面所有表 的全部数据
-    // ==============================================
+    // ==============================
+    // 3. 返回所有表数据
+    // ==============================
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*' // 允许前端跨域调用
       },
       body: JSON.stringify({
-        message: "✅ 两个数据库所有表查询成功！",
+        message: "✅ 两个库所有表查询成功！",
         meishan_food: {
           shops: shops,
-          foods: foods,
-          categories: categories
+          user_checkins: user_checkins,
+          user_reviews: user_reviews,
+          visitor_messages: visitor_messages
         },
         pickle_db: {
-          pickle_records: pickle_records,
-          materials: materials,
-          users: users
+          pickle_records: pickle_records
         }
       })
     };
 
   } catch (error) {
     return {
-      statusCode: 200,
+      statusCode: 500,
       body: JSON.stringify({
-        message: "⚠️ 连接成功，但部分表不存在（正常）",
+        message: "❌ 查询失败",
         error: error.message
       })
     };
