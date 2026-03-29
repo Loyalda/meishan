@@ -133,7 +133,6 @@
 <script>
 import * as echarts from 'echarts'
 import { ref, onMounted, nextTick } from 'vue'
-// 引入 Supabase 客户端
 import { supabase } from '@/supabase'
 
 export default {
@@ -173,18 +172,17 @@ export default {
     const savePickleToDB = async (pickle) => {
       try {
         const { error } = await supabase
-          .from('pickle_records') // 你的表名
+          .from('pickle_records')
           .insert([{
-            姓名: pickle.name,        // 对应表中「姓名」字段
-            盐比例: pickle.salt_ratio, // 对应表中「盐比例」字段
-            发酵天数: pickle.ferment_days, // 对应表中「发酵天数」字段
-            创建时间: new Date()       // 对应表中「创建时间」字段
+            name: pickle.name,
+            salt_ratio: pickle.salt_ratio,
+            ferment_days: pickle.ferment_days
           }])
 
         if (error) throw error
-        loadChartData() // 刷新图表
+        loadChartData()
       } catch (err) {
-        console.log('保存失败', err)
+        console.error('保存失败', err)
       }
     }
 
@@ -203,15 +201,14 @@ export default {
     const loadChartData = async () => {
       try {
         const { data, error } = await supabase
-          .from('pickle_records') // 你的表名
-          .select('姓名') // 查询「姓名」字段用于统计
+          .from('pickle_records')
+          .select('name')
 
         if (error) throw error
 
-        // 统计每种泡菜的点击次数
         const countMap = {}
         data.forEach(item => {
-          countMap[item.姓名] = (countMap[item.姓名] || 0) + 1
+          countMap[item.name] = (countMap[item.name] || 0) + 1
         })
 
         const names = Object.keys(countMap)
@@ -222,7 +219,7 @@ export default {
           series: [{ data: counts }]
         })
       } catch (err) {
-        console.log('获取图表数据失败', err)
+        console.error('获取图表数据失败', err)
       }
     }
 
